@@ -9,8 +9,6 @@ logger = logging.getLogger(__name__)
 
 coloredlogs.install(level='DEBUG', logger=logger)
 
-RGB_LENIENCE = 10
-
 class AutoDrawer():
     def __init__(self, client, image, startX, startY, is_animated=False): # image can also be a directory
         self.client = client
@@ -43,27 +41,41 @@ class AutoDrawer():
 
         return canvas
 
-    async def shouldChangePixel(self, current_pixel, pixel):
-        if abs(current_pixel[0] - pixel[0]) >= RGB_LENIENCE:
-            if abs(current_pixel[1] - pixel[1]) >= RGB_LENIENCE:
-                if abs(current_pixel[2] - pixel[2]) >= RGB_LENIENCE:
-                    return True
-        return False 
+    async def getMeanPixelDifference(self, current_pixel, pixel):
+        r = abs(current_pixel[0] - pixel[0])
+        g = abs(current_pixel[1] - pixel[1])
+        b = abs(current_pixel[2] - pixel[2])
+
+        mean = round((r + g + b) / 3)
+        return mean
 
     async def getCoordsToDraw(self, image):
         current_pixels = await self.getPixels()
 
-        coords = []
+        coords_dict = {}
         for x in range(0, image.width):
             for y in range(0, image.width):
                 current_pixel = current_pixels.getpixel((x + self.startX, y + self.startY))
                 image_pixel = image.getpixel((x, y))
 
                 # We don't need to change the pixel if it's close enough to what it should be
-                if await self.shouldChangePixel(current_pixel, image_pixel):
-                    coords.append((x + self.startX, y + self.startY))
+                pixel_difference = await self.getMeanPixelDifference(current_pixel, image_pixel) # TODO: sort from most pixel difference down?
+                if current_pixel[0:3] != image_pixel[0:3]:
+                    if pixel_difference in coords_dict:
+                        coords_dict[pixel_difference].append((x + self.startX, y + self.startY))
+                    else:
+                        coords_dict[pixel_difference] = [(x + self.startX, y + self.startY)]
 
-        return coords
+        sorted_coords = []
+        # Now we need to put the coords in order and make a list
+        for pixel_difference, coords_list in sorted(coords_dict.items()):
+            for coords in coords_list:
+                sorted_coords.append(coords)
+
+        # Reverse the order of the list since it's sorted from least pixel difference to most
+        sorted_coords = sorted_coords[::-1]
+
+        return sorted_coords
 
     async def setPixel(self, coords, rgb):
         await self.client.set_pixel(coords, rgb)
@@ -93,7 +105,7 @@ class AutoDrawer():
             pixels = await self.getCoordsToDraw(image)
 
             total_pixels = image.height * image.width
-            logger.info(f"{total_pixels - len(pixels)}/{total_pixels} are valid") # TODO: update comment on how it works, fix draw check and make priorities
+            logger.info(f"{total_pixels - len(pixels)}/{total_pixels} are valid") # TODO: update comment on how it works, fix draw check and make priorities. also refactor all code
   
             for coords in pixels:
                 # Check if our cycle is outdated
@@ -108,8 +120,7 @@ class AutoDrawer():
 
                 pixel = image.getpixel((coords[0] - self.startX, coords[1] - self.startY))
 
-
-                if await self.shouldChangePixel(current_pixel, pixel):
+                if current_pixel[0:3] != pixel[0:3]: # We shouldn't change the pixel if it is already correct
                     await self.setPixel(coords, self.rgbToHex(pixel[0:3]))
 
             if not self.is_animated and not is_guarded:
