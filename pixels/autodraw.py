@@ -43,20 +43,25 @@ class AutoDrawer():
 
         return canvas
 
+    async def shouldChangePixel(self, current_pixel, pixel):
+        if abs(current_pixel[0] - pixel[0]) >= RGB_LENIENCE:
+            if abs(current_pixel[1] - pixel[1]) >= RGB_LENIENCE:
+                if abs(current_pixel[2] - pixel[2]) >= RGB_LENIENCE:
+                    return True
+        return False 
+
     async def getCoordsToDraw(self, image):
         current_pixels = await self.getPixels()
 
         coords = []
         for x in range(0, image.width):
             for y in range(0, image.width):
-                image_pixel = image.getpixel((x, y))
                 current_pixel = current_pixels.getpixel((x + self.startX, y + self.startY))
+                image_pixel = image.getpixel((x, y))
 
                 # We don't need to change the pixel if it's close enough to what it should be
-                if abs(current_pixel[0] - image_pixel[0]) >= RGB_LENIENCE:
-                    if abs(current_pixel[1] - image_pixel[1]) >= RGB_LENIENCE:
-                        if abs(current_pixel[2] - image_pixel[2]) >= RGB_LENIENCE:
-                            coords.append((x + self.startX, y + self.startY))
+                if await self.shouldChangePixel(current_pixel, image_pixel):
+                    coords.append((x + self.startX, y + self.startY))
 
         return coords
 
@@ -98,9 +103,14 @@ class AutoDrawer():
                         break
 
                 # logger.warning(f"pixel at {coords} was changed. current: {current_pixels.getpixel(coords)[0:3]}, previous: {pixel_cache[coords]}")
+                current_pixels = await self.getPixels()
+                current_pixel = current_pixels.getpixel((coords))
+
                 pixel = image.getpixel((coords[0] - self.startX, coords[1] - self.startY))
 
-                await self.setPixel(coords, self.rgbToHex(pixel[0:3]))
+
+                if await self.shouldChangePixel(current_pixel, pixel):
+                    await self.setPixel(coords, self.rgbToHex(pixel[0:3]))
 
             if not self.is_animated and not is_guarded:
                 return
