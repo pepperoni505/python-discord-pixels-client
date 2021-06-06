@@ -16,4 +16,4 @@ jobs:
           heroku_app_name: ${{secrets.HEROKU_APP_NAME}} #Must be unique in Heroku
           heroku_email: ${{secrets.HEROKU_EMAIL}}
         env:
-          TOKEN: ${{secrets.PIXELS_API_TOKEN}}
+          HD_TOKEN: ${{secrets.PIXELS_API_TOKEN}}
