@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 coloredlogs.install(level='DEBUG', logger=logger)
 
-RGB_LENIENCE = 30
+RGB_LENIENCE = 20
 
 class AutoDrawer():
     def __init__(self, client, image, startX, startY, is_animated=False): # image can also be a directory
